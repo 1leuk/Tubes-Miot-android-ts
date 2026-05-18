@@ -6,7 +6,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <DashboardScreen />
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </SafeAreaProvider>
   );
 }

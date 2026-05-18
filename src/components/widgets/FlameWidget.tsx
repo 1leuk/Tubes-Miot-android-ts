@@ -1,121 +1,112 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
-import CrystalCard from '../geometry/CrystalCard';
-import DiamondFrame from '../geometry/DiamondFrame';
+import { COLORS, SPACING, RADIUS, SHADOW } from '../../constants/theme';
 
 interface Props {
   flameDetected: boolean;
 }
 
 export default function FlameWidget({ flameDetected }: Props) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0.4)).current;
+  const dotAnim = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
     if (flameDetected) {
-      const pulse = Animated.loop(
+      const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.06, duration: 400, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dotAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(dotAnim, { toValue: 0.3, duration: 350, useNativeDriver: true }),
         ])
       );
-      const glow = Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0.3, duration: 300, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      glow.start();
-      return () => { pulse.stop(); glow.stop(); };
+      loop.start();
+      return () => loop.stop();
     } else {
-      pulseAnim.setValue(1);
-      glowAnim.setValue(0.4);
+      dotAnim.setValue(0.4);
     }
   }, [flameDetected]);
 
-  const color = flameDetected ? COLORS.magenta : COLORS.cyan;
-  const glow = flameDetected ? COLORS.magentaGlow : COLORS.cyanGlow;
-  const soft = flameDetected ? COLORS.magentaSoft : COLORS.cyanSoft;
+  const color = flameDetected ? COLORS.red : COLORS.green;
+  const colorSoft = flameDetected ? COLORS.redSoft : COLORS.greenSoft;
 
   return (
-    <View style={{ flex: 1 }}>
-      <CrystalCard accentColor={color} glowColor={glow} cutCorner="both">
-        <Animated.View style={[styles.inner, { transform: [{ scale: pulseAnim }] }]}>
-          <DiamondFrame size={52} color={color} glowColor={glow} spinning={flameDetected}>
-            <Animated.Text style={[styles.iconText, { opacity: flameDetected ? glowAnim : 1 }]}>
-              {flameDetected ? '◆' : '◇'}
-            </Animated.Text>
-          </DiamondFrame>
+    <View style={[styles.card, { flex: 1 }]}>
+      <View style={styles.inner}>
+        {/* Icon */}
+        <View style={[styles.iconBox, { backgroundColor: colorSoft }]}>
+          <Text style={styles.iconEmoji}>{flameDetected ? '🔥' : '🔍'}</Text>
+        </View>
 
-          <View style={styles.infoBlock}>
-            <View style={styles.labelRow}>
-              <View style={[styles.labelDiamond, { backgroundColor: color }]} />
-              <Text style={styles.label}>FLAME SENSOR</Text>
-            </View>
+        {/* Info */}
+        <View style={styles.infoBlock}>
+          <Text style={styles.cardLabel}>Flame Sensor</Text>
 
-            <View style={[styles.statusBox, { backgroundColor: soft, borderColor: color }]}>
-              <Text style={[styles.statusText, { color }]}>
-                {flameDetected ? '◆ API TERDETEKSI' : '◇ AMAN'}
-              </Text>
-            </View>
-
-            <Text style={styles.hint}>
-              {flameDetected ? 'Segera ambil tindakan darurat!' : 'Tidak ada nyala api terdeteksi.'}
+          <View style={styles.statusRow}>
+            <Animated.View style={[styles.dot, { backgroundColor: color, opacity: dotAnim }]} />
+            <Text style={[styles.statusText, { color }]}>
+              {flameDetected ? 'Api Terdeteksi!' : 'Aman'}
             </Text>
           </View>
-        </Animated.View>
-      </CrystalCard>
+
+          <Text style={styles.hintText}>
+            {flameDetected
+              ? 'Segera ambil tindakan darurat!'
+              : 'Tidak ada nyala api terdeteksi.'}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    ...SHADOW.sm,
+  },
   inner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
   },
-  iconText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: COLORS.magenta,
+  iconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  iconEmoji: { fontSize: 26 },
   infoBlock: {
     flex: 1,
-    gap: 6,
+    gap: 5,
   },
-  labelRow: {
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  labelDiamond: {
-    width: 5,
-    height: 5,
-    transform: [{ rotate: '45deg' }],
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: COLORS.textSecondary,
-    letterSpacing: 2,
-  },
-  statusBox: {
-    borderWidth: 1,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    alignSelf: 'flex-start',
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontSize: 15,
+    fontWeight: '700',
   },
-  hint: {
-    fontSize: 10,
-    color: COLORS.textMuted,
+  hintText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
   },
 });

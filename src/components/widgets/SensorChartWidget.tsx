@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
-import CrystalCard from '../geometry/CrystalCard';
+import { COLORS, SPACING, RADIUS, SHADOW } from '../../constants/theme';
 
 interface Props {
   mq2History: number[];
@@ -9,11 +8,11 @@ interface Props {
 }
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const CHART_H = 90;
+const CHART_H = 80;
 
-function GeometricSparkline({ values, color, maxVal }: { values: number[]; color: string; maxVal: number }) {
+function Sparkline({ values, color, maxVal }: { values: number[]; color: string; maxVal: number }) {
   if (values.length < 2) return null;
-  const w = SCREEN_W - 72 - SPACING.md * 2;
+  const w = SCREEN_W - SPACING.md * 2 - SPACING.md * 2 - 2; // account for card and chart padding
   const n = values.length;
   const stepX = w / (n - 1);
   const normalized = values.map(v => Math.min(v / maxVal, 1));
@@ -28,10 +27,19 @@ function GeometricSparkline({ values, color, maxVal }: { values: number[]; color
   });
 
   return (
-    <View style={{ height: CHART_H, width: w, position: 'relative' }}>
-      {/* Grid lines — dashed style via segments */}
-      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
-        <View key={`g${i}`} style={{ position: 'absolute', top: CHART_H * (1 - pct), left: 0, right: 0, height: 1, backgroundColor: COLORS.border, opacity: 0.4 }} />
+    <View style={{ height: CHART_H, position: 'relative' }}>
+      {/* Grid lines */}
+      {[0.25, 0.5, 0.75].map((pct, i) => (
+        <View
+          key={`g${i}`}
+          style={{
+            position: 'absolute',
+            top: CHART_H * (1 - pct),
+            left: 0, right: 0,
+            height: 1,
+            backgroundColor: COLORS.border,
+          }}
+        />
       ))}
 
       {/* Line segments */}
@@ -40,14 +48,19 @@ function GeometricSparkline({ values, color, maxVal }: { values: number[]; color
         const dy = seg.y1 - seg.y0;
         const length = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const isRecent = i >= segments.length - 5;
         return (
           <View
             key={i}
             style={{
-              position: 'absolute', left: seg.x0, top: seg.y0,
-              width: length, height: 2,
+              position: 'absolute',
+              left: seg.x0,
+              top: seg.y0,
+              width: length,
+              height: 2,
               backgroundColor: color,
-              opacity: 0.6 + (i / segments.length) * 0.4,
+              opacity: isRecent ? 1 : 0.35,
+              borderRadius: 1,
               transform: [{ rotate: `${angle}deg` }],
               transformOrigin: '0 0',
             }}
@@ -55,26 +68,24 @@ function GeometricSparkline({ values, color, maxVal }: { values: number[]; color
         );
       })}
 
-      {/* Diamond dots on each value */}
-      {normalized.map((y, i) => {
-        const isLast = i === normalized.length - 1;
-        const dotSize = isLast ? 8 : 5;
+      {/* Last value dot */}
+      {normalized.length > 0 && (() => {
+        const lastY = normalized[normalized.length - 1];
         return (
           <View
-            key={`d${i}`}
             style={{
               position: 'absolute',
-              left: i * stepX - dotSize / 2,
-              top: CHART_H - y * CHART_H - dotSize / 2,
-              width: dotSize, height: dotSize,
+              left: (normalized.length - 1) * stepX - 4,
+              top: CHART_H - lastY * CHART_H - 4,
+              width: 8, height: 8,
+              borderRadius: 4,
               backgroundColor: color,
-              transform: [{ rotate: '45deg' }],
-              borderRadius: 1,
-              opacity: isLast ? 1 : 0.35,
+              borderWidth: 2,
+              borderColor: COLORS.surface,
             }}
           />
         );
-      })}
+      })()}
     </View>
   );
 }
@@ -84,91 +95,88 @@ export default function SensorChartWidget({ mq2History, ultraHistory }: Props) {
   const lastUltra = ultraHistory[ultraHistory.length - 1] ?? 0;
 
   return (
-    <CrystalCard accentColor={COLORS.violet} glowColor={COLORS.violetGlow} cutCorner="topRight">
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={[styles.headerIcon, { backgroundColor: COLORS.violetSoft }]}>
-          <Text style={styles.headerEmoji}>◈</Text>
-        </View>
-        <View>
-          <Text style={styles.title}>Grafik Sensor</Text>
-          <Text style={styles.subtitle}>Riwayat pembacaan real-time</Text>
-        </View>
-      </View>
-
-      {/* MQ-2 Chart */}
+    <View style={styles.card}>
+      {/* MQ-2 */}
       <View style={styles.chartSection}>
         <View style={styles.chartHeader}>
-          <View style={styles.chartLabelRow}>
-            <View style={[styles.labelDiamond, { backgroundColor: COLORS.orange }]} />
-            <Text style={[styles.chartLabel, { color: COLORS.orange }]}>MQ-2 (ADC)</Text>
+          <View style={styles.labelRow}>
+            <View style={[styles.dot, { backgroundColor: COLORS.chartOrange }]} />
+            <Text style={[styles.chartLabel, { color: COLORS.chartOrange }]}>MQ-2 Asap/Gas</Text>
           </View>
-          <Text style={[styles.chartCurrent, { color: COLORS.orange }]}>{lastMq2}</Text>
+          <Text style={[styles.currentVal, { color: COLORS.chartOrange }]}>{lastMq2} ADC</Text>
         </View>
         <View style={styles.chartArea}>
-          <GeometricSparkline values={mq2History} color={COLORS.orange} maxVal={4095} />
+          <Sparkline values={mq2History} color={COLORS.chartOrange} maxVal={4095} />
         </View>
       </View>
 
-      {/* Divider line */}
-      <View style={styles.divider}>
-        <View style={[styles.dividerLine, { backgroundColor: COLORS.violet }]} />
-        <View style={[styles.dividerDot, { backgroundColor: COLORS.violet }]} />
-        <View style={[styles.dividerLine, { backgroundColor: COLORS.violet }]} />
-      </View>
+      <View style={styles.separator} />
 
-      {/* Ultrasonic Chart */}
+      {/* Ultrasonic */}
       <View style={styles.chartSection}>
         <View style={styles.chartHeader}>
-          <View style={styles.chartLabelRow}>
-            <View style={[styles.labelDiamond, { backgroundColor: COLORS.cyan }]} />
-            <Text style={[styles.chartLabel, { color: COLORS.cyan }]}>Ultrasonic (cm)</Text>
+          <View style={styles.labelRow}>
+            <View style={[styles.dot, { backgroundColor: COLORS.chartBlue }]} />
+            <Text style={[styles.chartLabel, { color: COLORS.chartBlue }]}>Ultrasonik</Text>
           </View>
-          <Text style={[styles.chartCurrent, { color: COLORS.cyan }]}>{lastUltra} cm</Text>
+          <Text style={[styles.currentVal, { color: COLORS.chartBlue }]}>{lastUltra} cm</Text>
         </View>
         <View style={styles.chartArea}>
-          <GeometricSparkline values={ultraHistory} color={COLORS.cyan} maxVal={400} />
+          <Sparkline values={ultraHistory} color={COLORS.chartBlue} maxVal={400} />
         </View>
       </View>
-    </CrystalCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-    marginBottom: SPACING.md,
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    ...SHADOW.sm,
   },
-  headerIcon: {
-    width: 36, height: 36, borderRadius: RADIUS.sm,
-    alignItems: 'center', justifyContent: 'center',
+  chartSection: {
+    marginBottom: 4,
   },
-  headerEmoji: { fontSize: 18, color: COLORS.violet, fontWeight: '900' },
-  title: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: 10, color: COLORS.textSecondary },
-  chartSection: { marginBottom: 4 },
   chartHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  chartLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  labelDiamond: { width: 6, height: 6, transform: [{ rotate: '45deg' }], borderRadius: 1 },
-  chartLabel: { fontSize: 11, fontWeight: '700' },
-  chartCurrent: { fontSize: 18, fontWeight: '900' },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  chartLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  currentVal: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
   chartArea: {
-    height: CHART_H,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surfaceHigh,
     borderRadius: RADIUS.sm,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 4,
+    padding: SPACING.sm,
     overflow: 'hidden',
   },
-  divider: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 6,
-    marginVertical: 8,
+  separator: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: SPACING.sm,
   },
-  dividerLine: { flex: 1, height: 1, opacity: 0.2 },
-  dividerDot: { width: 5, height: 5, borderRadius: 1, transform: [{ rotate: '45deg' }], opacity: 0.4 },
 });

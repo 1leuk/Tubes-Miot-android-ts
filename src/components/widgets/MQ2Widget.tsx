@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { COLORS, SPACING, RADIUS, SHADOW } from '../../constants/theme';
 
 interface Props {
-  mq2Value: number;    // 0–4095 (analog ADC)
+  mq2Value: number;
   smokeDetected: boolean;
 }
 
-const THRESHOLD = 800; // smoke alarm threshold
+const THRESHOLD = 800;
 const MAX_VAL = 4095;
 
 export default function MQ2Widget({ mq2Value, smokeDetected }: Props) {
@@ -22,40 +22,50 @@ export default function MQ2Widget({ mq2Value, smokeDetected }: Props) {
     }).start();
   }, [fillPct]);
 
-  const color = smokeDetected ? COLORS.amber : COLORS.cyan;
-  const bg = smokeDetected ? COLORS.amberSoft : COLORS.cyanSoft;
-
-  const barColor = fillPct > 0.75 ? COLORS.red : fillPct > THRESHOLD / MAX_VAL ? COLORS.amber : COLORS.cyan;
+  const color = smokeDetected ? COLORS.amber : COLORS.green;
+  const colorSoft = smokeDetected ? COLORS.amberSoft : COLORS.greenSoft;
+  const barColor =
+    fillPct > 0.75 ? COLORS.red :
+    fillPct > THRESHOLD / MAX_VAL ? COLORS.amber :
+    COLORS.chartBlue;
 
   const barWidth = barAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
   });
 
-  // percentage safety level (inverted: 0% MQ2 = 100% safe)
   const safetyPct = Math.round((1 - fillPct) * 100);
 
   return (
     <View style={[styles.card, { flex: 1 }]}>
-      <View style={[styles.iconBox, { backgroundColor: bg }]}>
-        <Text style={[styles.icon, { color }]}>💨</Text>
+      {/* Header */}
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconBox, { backgroundColor: colorSoft }]}>
+          <Text style={styles.iconEmoji}>💨</Text>
+        </View>
+        <Text style={styles.cardLabel}>MQ-2 Gas</Text>
       </View>
-      <Text style={styles.label}>MQ-2 Asap/Gas</Text>
-      <Text style={styles.valueLarge}>
-        <Text style={[styles.num, { color }]}>{mq2Value}</Text>
-        <Text style={styles.unit}> ADC</Text>
-      </Text>
+
+      {/* Value */}
+      <View style={styles.valueRow}>
+        <Text style={styles.valueNum}>{mq2Value}</Text>
+        <Text style={styles.valueUnit}>ADC</Text>
+      </View>
+
+      {/* Progress bar with threshold */}
       <View style={styles.barTrack}>
         <Animated.View style={[styles.barFill, { width: barWidth, backgroundColor: barColor }]} />
-        {/* Threshold marker */}
         <View style={[styles.thresholdLine, { left: `${(THRESHOLD / MAX_VAL) * 100}%` as any }]} />
       </View>
-      <View style={[styles.statusChip, { backgroundColor: bg }]}>
+
+      {/* Status chip */}
+      <View style={[styles.statusChip, { backgroundColor: colorSoft }]}>
         <Text style={[styles.statusText, { color }]}>
-          {smokeDetected ? '⚠️ Asap Terdeteksi!' : '✅ Udara Bersih'}
+          {smokeDetected ? 'Asap Terdeteksi' : 'Udara Bersih'}
         </Text>
       </View>
-      <Text style={styles.safety}>Keamanan udara: {safetyPct}%</Text>
+
+      <Text style={styles.safetyText}>Keamanan: {safetyPct}%</Text>
     </View>
   );
 }
@@ -64,48 +74,85 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
+    padding: SPACING.md,
+    ...SHADOW.sm,
   },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
+  cardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: SPACING.sm,
     marginBottom: SPACING.sm,
   },
-  icon: { fontSize: 22 },
-  label: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
-  valueLarge: { marginBottom: SPACING.sm },
-  num: { fontSize: 32, fontWeight: '900' },
-  unit: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600' },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconEmoji: { fontSize: 18 },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 3,
+    marginBottom: SPACING.sm,
+  },
+  valueNum: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    letterSpacing: -1,
+  },
+  valueUnit: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+    marginBottom: 5,
+  },
   barTrack: {
     width: '100%',
-    height: 6,
+    height: 5,
     backgroundColor: COLORS.border,
     borderRadius: RADIUS.full,
     overflow: 'visible',
     marginBottom: SPACING.sm,
     position: 'relative',
   },
-  barFill: { height: 6, borderRadius: RADIUS.full },
+  barFill: {
+    height: 5,
+    borderRadius: RADIUS.full,
+  },
   thresholdLine: {
     position: 'absolute',
     top: -3,
     width: 2,
-    height: 12,
+    height: 11,
     backgroundColor: COLORS.amber,
     borderRadius: 1,
+    opacity: 0.7,
   },
   statusChip: {
     borderRadius: RADIUS.full,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
     marginBottom: 4,
   },
-  statusText: { fontSize: 11, fontWeight: '700' },
-  safety: { fontSize: 10, color: COLORS.textMuted },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  safetyText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+  },
 });
