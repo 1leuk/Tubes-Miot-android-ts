@@ -72,6 +72,10 @@ const INITIAL_SENSOR: SensorData = {
 const MAX_HISTORY = 20;
 const MAX_LOGS = 15;
 
+// ─── Override types ───────────────────────────────────────────────────────────
+type OverrideState = 'auto' | 'manual-open' | 'manual-closed';
+type BuzzerOverrideState = 'auto' | 'manual-on' | 'manual-off';
+
 export default function DashboardScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sensor, setSensor] = useState<SensorData>(INITIAL_SENSOR);
@@ -85,11 +89,61 @@ export default function DashboardScreen() {
   const [uptimeMinutes, setUptimeMinutes] = useState(0);
   const startTime = useRef(Date.now());
 
+  // ── Manual override state ──
+  const [portalOverride, setPortalOverride] = useState<OverrideState>('auto');
+  const [buzzerOverride, setBuzzerOverride] = useState<BuzzerOverrideState>('auto');
+
   const prevOccupied = useRef(false);
   const prevStatus = useRef<SystemStatus>('normal');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(16)).current;
+
+  // ── Derived effective values ──
+  const effectivePortalOpen =
+    portalOverride === 'manual-open' ? true :
+    portalOverride === 'manual-closed' ? false :
+    sensor.portalOpen;
+
+  const effectiveBuzzerActive =
+    buzzerOverride === 'manual-on' ? true :
+    buzzerOverride === 'manual-off' ? false :
+    sensor.buzzerActive;
+
+  // ── Override handlers ──
+  const handlePortalToggle = (open: boolean) => {
+    const newOverride: OverrideState = open ? 'manual-open' : 'manual-closed';
+    setPortalOverride(newOverride);
+    setLogs(l => [
+      makeLog('info', `Override manual: Portal ${open ? 'DIBUKA' : 'DITUTUP'} secara manual oleh operator.`),
+      ...l,
+    ].slice(0, MAX_LOGS));
+  };
+
+  const handlePortalReset = () => {
+    setPortalOverride('auto');
+    setLogs(l => [
+      makeLog('normal', 'Portal dikembalikan ke kontrol otomatis sistem.'),
+      ...l,
+    ].slice(0, MAX_LOGS));
+  };
+
+  const handleBuzzerToggle = (active: boolean) => {
+    const newOverride: BuzzerOverrideState = active ? 'manual-on' : 'manual-off';
+    setBuzzerOverride(newOverride);
+    setLogs(l => [
+      makeLog('info', `Override manual: Buzzer ${active ? 'DIAKTIFKAN' : 'DIMATIKAN'} secara manual oleh operator.`),
+      ...l,
+    ].slice(0, MAX_LOGS));
+  };
+
+  const handleBuzzerReset = () => {
+    setBuzzerOverride('auto');
+    setLogs(l => [
+      makeLog('normal', 'Buzzer dikembalikan ke kontrol otomatis sistem.'),
+      ...l,
+    ].slice(0, MAX_LOGS));
+  };
 
   // ── Entrance animation ──
   useEffect(() => {
@@ -183,8 +237,14 @@ export default function DashboardScreen() {
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
             <SystemStatusWidget
               status={sensor.systemStatus}
-              portalOpen={sensor.portalOpen}
-              buzzerActive={sensor.buzzerActive}
+              portalOpen={effectivePortalOpen}
+              buzzerActive={effectiveBuzzerActive}
+              portalOverride={portalOverride}
+              buzzerOverride={buzzerOverride}
+              onPortalToggle={handlePortalToggle}
+              onPortalReset={handlePortalReset}
+              onBuzzerToggle={handleBuzzerToggle}
+              onBuzzerReset={handleBuzzerReset}
             />
           </Animated.View>
 

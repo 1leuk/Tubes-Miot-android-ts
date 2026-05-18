@@ -1,12 +1,21 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, RADIUS, SHADOW } from '../../constants/theme';
 import { SystemStatus } from '../../types';
+
+type OverrideState = 'auto' | 'manual-open' | 'manual-closed';
+type BuzzerOverrideState = 'auto' | 'manual-on' | 'manual-off';
 
 interface Props {
   status: SystemStatus;
   portalOpen: boolean;
   buzzerActive: boolean;
+  portalOverride: OverrideState;
+  buzzerOverride: BuzzerOverrideState;
+  onPortalToggle: (open: boolean) => void;
+  onPortalReset: () => void;
+  onBuzzerToggle: (active: boolean) => void;
+  onBuzzerReset: () => void;
 }
 
 const STATUS_CONFIG: Record<SystemStatus, {
@@ -43,9 +52,17 @@ const STATUS_CONFIG: Record<SystemStatus, {
   },
 };
 
-export default function SystemStatusWidget({ status, portalOpen, buzzerActive }: Props) {
+export default function SystemStatusWidget({
+  status, portalOpen, buzzerActive,
+  portalOverride, buzzerOverride,
+  onPortalToggle, onPortalReset,
+  onBuzzerToggle, onBuzzerReset,
+}: Props) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const cfg = STATUS_CONFIG[status];
+
+  const isPortalManual = portalOverride !== 'auto';
+  const isBuzzerManual = buzzerOverride !== 'auto';
 
   useEffect(() => {
     if (status !== 'normal') {
@@ -64,13 +81,12 @@ export default function SystemStatusWidget({ status, portalOpen, buzzerActive }:
 
   return (
     <Animated.View style={[styles.card, { transform: [{ scale: pulseAnim }] }, { borderLeftColor: cfg.color }]}>
-      {/* Status row */}
+
+      {/* ── Status row ── */}
       <View style={styles.topRow}>
-        {/* Status icon */}
         <View style={[styles.iconCircle, { backgroundColor: cfg.bg }]}>
           <Text style={[styles.iconText, { color: cfg.color }]}>{cfg.icon}</Text>
         </View>
-
         <View style={styles.textBlock}>
           <View style={styles.labelRow}>
             <View style={[styles.dot, { backgroundColor: cfg.color }]} />
@@ -80,20 +96,146 @@ export default function SystemStatusWidget({ status, portalOpen, buzzerActive }:
         </View>
       </View>
 
-      {/* Actuator row */}
-      <View style={styles.actuatorRow}>
-        <View style={[styles.actuatorChip, portalOpen && { borderColor: cfg.color, backgroundColor: cfg.bg }]}>
-          <View style={[styles.chipDot, { backgroundColor: portalOpen ? cfg.color : COLORS.textMuted }]} />
-          <Text style={[styles.actuatorLabel, { color: portalOpen ? cfg.color : COLORS.textSecondary }]}>
-            Portal: {portalOpen ? 'Terbuka' : 'Tertutup'}
-          </Text>
+      {/* ── Divider ── */}
+      <View style={styles.divider} />
+
+      {/* ── Portal Control ── */}
+      <View style={styles.actuatorBlock}>
+        <View style={styles.actuatorLabelRow}>
+          <Text style={styles.actuatorTitle}>🚧  Portal</Text>
+          <View style={styles.actuatorBadgeRow}>
+            {/* State badge */}
+            <View style={[
+              styles.stateBadge,
+              { backgroundColor: portalOpen ? COLORS.greenSoft : COLORS.accentSoft },
+            ]}>
+              <View style={[
+                styles.stateDot,
+                { backgroundColor: portalOpen ? COLORS.green : COLORS.textMuted },
+              ]} />
+              <Text style={[
+                styles.stateBadgeText,
+                { color: portalOpen ? COLORS.green : COLORS.textSecondary },
+              ]}>
+                {portalOpen ? 'Terbuka' : 'Tertutup'}
+              </Text>
+            </View>
+            {/* Override label */}
+            {isPortalManual && (
+              <View style={styles.overrideBadge}>
+                <Text style={styles.overrideBadgeText}>Override Manual</Text>
+              </View>
+            )}
+            {!isPortalManual && (
+              <View style={styles.autoBadge}>
+                <Text style={styles.autoBadgeText}>Otomatis</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        <View style={[styles.actuatorChip, buzzerActive && { borderColor: COLORS.red, backgroundColor: COLORS.redSoft }]}>
-          <View style={[styles.chipDot, { backgroundColor: buzzerActive ? COLORS.red : COLORS.textMuted }]} />
-          <Text style={[styles.actuatorLabel, { color: buzzerActive ? COLORS.red : COLORS.textSecondary }]}>
-            Buzzer: {buzzerActive ? 'Aktif' : 'Mati'}
-          </Text>
+        {/* Portal buttons */}
+        <View style={styles.btnRow}>
+          <TouchableOpacity
+            style={[styles.btn, portalOpen && !isPortalManual ? styles.btnActiveGreen :
+              portalOpen && isPortalManual ? styles.btnActiveGreen : styles.btnInactive]}
+            onPress={() => onPortalToggle(true)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.btnText, portalOpen ? styles.btnTextActive : styles.btnTextInactive]}>
+              Buka
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btn, !portalOpen && isPortalManual ? styles.btnActiveRed :
+              !portalOpen && !isPortalManual ? styles.btnInactive : styles.btnInactive]}
+            onPress={() => onPortalToggle(false)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.btnText, !portalOpen && isPortalManual ? styles.btnTextActive : styles.btnTextInactive]}>
+              Tutup
+            </Text>
+          </TouchableOpacity>
+
+          {isPortalManual && (
+            <TouchableOpacity
+              style={styles.btnReset}
+              onPress={onPortalReset}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.btnResetText}>↺ Otomatis</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* ── Buzzer Control ── */}
+      <View style={[styles.actuatorBlock, { marginBottom: 0 }]}>
+        <View style={styles.actuatorLabelRow}>
+          <Text style={styles.actuatorTitle}>🔔  Buzzer</Text>
+          <View style={styles.actuatorBadgeRow}>
+            {/* State badge */}
+            <View style={[
+              styles.stateBadge,
+              { backgroundColor: buzzerActive ? COLORS.redSoft : COLORS.accentSoft },
+            ]}>
+              <View style={[
+                styles.stateDot,
+                { backgroundColor: buzzerActive ? COLORS.red : COLORS.textMuted },
+              ]} />
+              <Text style={[
+                styles.stateBadgeText,
+                { color: buzzerActive ? COLORS.red : COLORS.textSecondary },
+              ]}>
+                {buzzerActive ? 'Aktif' : 'Mati'}
+              </Text>
+            </View>
+            {/* Override label */}
+            {isBuzzerManual && (
+              <View style={styles.overrideBadge}>
+                <Text style={styles.overrideBadgeText}>Override Manual</Text>
+              </View>
+            )}
+            {!isBuzzerManual && (
+              <View style={styles.autoBadge}>
+                <Text style={styles.autoBadgeText}>Otomatis</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Buzzer buttons */}
+        <View style={styles.btnRow}>
+          <TouchableOpacity
+            style={[styles.btn, buzzerActive && isBuzzerManual ? styles.btnActiveRed : styles.btnInactive]}
+            onPress={() => onBuzzerToggle(true)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.btnText, buzzerActive && isBuzzerManual ? styles.btnTextActive : styles.btnTextInactive]}>
+              Aktifkan
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btn, !buzzerActive && isBuzzerManual ? styles.btnActiveGray : styles.btnInactive]}
+            onPress={() => onBuzzerToggle(false)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.btnText, !buzzerActive && isBuzzerManual ? styles.btnTextActive : styles.btnTextInactive]}>
+              Matikan
+            </Text>
+          </TouchableOpacity>
+
+          {isBuzzerManual && (
+            <TouchableOpacity
+              style={styles.btnReset}
+              onPress={onBuzzerReset}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.btnResetText}>↺ Otomatis</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Animated.View>
@@ -111,6 +253,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     ...SHADOW.md,
   },
+
+  // ── Status section ──
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -130,7 +274,7 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     flex: 1,
-    gap: 6,
+    gap: 5,
   },
   labelRow: {
     flexDirection: 'row',
@@ -152,30 +296,133 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 18,
   },
-  actuatorRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
+
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: SPACING.sm,
   },
-  actuatorChip: {
-    flex: 1,
+
+  // ── Actuator blocks ──
+  actuatorBlock: {
+    marginBottom: SPACING.sm,
+  },
+  actuatorLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.sm,
-    paddingVertical: 8,
-    paddingHorizontal: SPACING.sm,
-    backgroundColor: COLORS.surfaceHigh,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  chipDot: {
+  actuatorTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  actuatorBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  // State badge (terbuka/tertutup/aktif/mati)
+  stateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  stateDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  actuatorLabel: {
+  stateBadgeText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+
+  // Override label
+  overrideBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: COLORS.amberSoft,
+    borderWidth: 1,
+    borderColor: COLORS.amberBorder,
+  },
+  overrideBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.amber,
+    letterSpacing: 0.2,
+  },
+
+  // Auto label
+  autoBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: COLORS.accentSoft,
+  },
+  autoBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+
+  // ── Buttons ──
+  btnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  btnInactive: {
+    backgroundColor: COLORS.surfaceHigh,
+    borderColor: COLORS.border,
+  },
+  btnActiveGreen: {
+    backgroundColor: COLORS.greenSoft,
+    borderColor: COLORS.greenBorder,
+  },
+  btnActiveRed: {
+    backgroundColor: COLORS.redSoft,
+    borderColor: COLORS.redBorder,
+  },
+  btnActiveGray: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.border,
+  },
+  btnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  btnTextActive: {
+    color: COLORS.textPrimary,
+  },
+  btnTextInactive: {
+    color: COLORS.textMuted,
+  },
+  btnReset: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.surfaceHigh,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  btnResetText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
 });
