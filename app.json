@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "temp-app",
-    "slug": "temp-app",
+    "name": "tubes-miot-android-ts",
+    "slug": "tubes-miot-android-ts",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
